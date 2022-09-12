@@ -38,28 +38,40 @@ class Archiver:
             url = url.strip()
 
             # Get html
-            html = r.get(url, stream=True).text
+            request = r.get(url, stream=True)
+            
+            if request.headers['Content-Type'][:4] != 'text':
+                print(request.headers['Content-Type'])
+                print(url, 'Non-html')
+                return
+                
+            html = request.text
 
             # Get usable filename
             filename = re.search(r'(?<=https?://)[^.]+', url).group()
             
             # Write to file
+            print('Saving: ', self.homedir + filename + '.html')
             with open(self.homedir + filename + '.html', 'wb') as file:
                 file.write(bytes(html, 'utf-8'))
             
             # Download all linked sites
-            links = re.findall(r'', html)
+            links = re.findall(r'(?<==")(?:https?:)?//[^ ]*?(?=")', html)
+            links += re.findall(r'(?<=src=")[^"]+', html)
+            
+            # Iterate over links
             for link in links:
-                # Check that site is within domain
-                if not re.match(r'$[^.]+\.[^.]', link):
-                    continue
-                
+                print(link)
+
+                # Fix link if needed
+                if link[:4].lower() != 'http':
+                    link = re.search(r'https?://[^/\\]+(/|\\)?', url).group() + link
+                                
                 # Download link
-                try:
-                    self.archive(link)
-                except r.RequestException:
-                    print('Error encountered in', link)
-        
+                self.archive(link)
+        else:
+            print('File exists')
+         
         return
 
     def _page1(self):
